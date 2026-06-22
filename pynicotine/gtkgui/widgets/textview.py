@@ -12,6 +12,7 @@ from pynicotine.gtkgui.application import GTK_API_VERSION
 from pynicotine.gtkgui.widgets import clipboard
 from pynicotine.gtkgui.widgets.accelerator import Accelerator
 from pynicotine.gtkgui.widgets.theme import update_tag_visuals
+from pynicotine.gtkgui.widgets.theme import username_to_color
 from pynicotine.gtkgui.widgets.theme import USER_STATUS_COLORS
 from pynicotine.slskmessages import UserStatus
 from pynicotine.utils import find_whole_word
@@ -272,10 +273,15 @@ class TextView:
 
         return tag
 
-    def update_tag(self, tag, color_id=None):
+    def update_tag(self, tag, color_id=None, rgba_hex=None):
 
         if color_id is not None:
             tag.color_id = color_id
+
+        if rgba_hex is not None:
+            tag.rgba_hex_override = rgba_hex
+        elif not hasattr(tag, "rgba_hex_override"):
+            tag.rgba_hex_override = None
 
         update_tag_visuals(tag)
 
@@ -512,8 +518,15 @@ class ChatView(TextView):
         if username in self.status_users:
             status = core.users.statuses.get(username, UserStatus.OFFLINE)
 
-        color = USER_STATUS_COLORS.get(status)
-        self.update_tag(self.user_tags[username], color)
+        if status == UserStatus.OFFLINE:
+            # Keep offline users visually distinct (dimmed), like before
+            color = USER_STATUS_COLORS.get(status)
+            self.update_tag(self.user_tags[username], color)
+        else:
+            # Online/away users get a unique, stable color derived from
+            # their username instead of one shared status color.
+            rgba_hex = username_to_color(username)
+            self.update_tag(self.user_tags[username], color_id=None, rgba_hex=rgba_hex)
 
     def update_user_tags(self):
         for username in self.user_tags:
