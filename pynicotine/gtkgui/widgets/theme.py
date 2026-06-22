@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2020-2025 Nicotine+ Contributors
 # SPDX-License-Identifier: GPL-3.0-or-later
 
+import hashlib
 import os
 import random
 import shutil
@@ -469,6 +470,27 @@ USER_STATUS_COLORS = {
     UserStatus.OFFLINE: "useroffline"
 }
 
+# Curated palette: readable on both light and dark backgrounds, no two
+# colors too close to each other, avoids pure red/green (used for
+# leecher/error and success cues elsewhere in the UI).
+USERNAME_COLOR_PALETTE = [
+    "#e6194B", "#3cb44b", "#4363d8", "#f58231", "#911eb4",
+    "#42d4f4", "#f032e6", "#bfef45", "#fabed4", "#469990",
+    "#dcbeff", "#9A6324", "#fffac8", "#800000", "#aaffc3",
+    "#808000", "#ffd8b1", "#000075", "#a9a9a9", "#e6beff",
+]
+
+
+def username_to_color(username):
+    """Deterministically map a username to a stable hex color from the
+    palette. Uses md5 (not Python's hash()) so the result is identical
+    across runs and machines, since PYTHONHASHSEED is randomized by
+    default."""
+
+    digest = hashlib.md5(username.encode("utf-8")).hexdigest()
+    index = int(digest, 16) % len(USERNAME_COLOR_PALETTE)
+    return USERNAME_COLOR_PALETTE[index]
+
 
 def add_css_class(widget, css_class):
 
@@ -632,7 +654,11 @@ def update_custom_css():
 
 def update_tag_visuals(tag):
 
-    color_hex = config.sections["ui"].get(tag.color_id)
+    color_hex = getattr(tag, "rgba_hex_override", None)
+
+    if not color_hex:
+        color_hex = config.sections["ui"].get(tag.color_id)
+
     tag_props = tag.props
 
     if tag.secondary_callback and not config.sections["ui"]["usernamehotspots"]:
